@@ -78,7 +78,7 @@
          (sql/insert-record :test-one {:my-txt "yyy"}))))
 
 (deftest insert-with-id
-  (sql/insert-with-id *db*
+  (sql/insert-with-id
     :test-one {:my-txt "xxx"}
     :test-two {:num-field (id :test-one)
                :my-txt "yyy"})
