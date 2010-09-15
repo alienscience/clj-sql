@@ -34,11 +34,11 @@ Accepts strings and keywords. Names must match *valid-name-re*"
   alias-from [n & vars]
   `(do ~@(map #(list 'clojure.contrib.def/defalias % (symbol (name n) (name %))) vars)))
 
-
-(alias-from sql
-            find-connection connection with-connection
+(alias-from clojure.contrib.sql
+            find-connection connection with-connection connection
             transaction set-rollback-only is-rollback-only
-            do-commands do-prepared with-query-results)
+            do-commands do-prepared with-query-results
+            transaction set-rollback-only)
 
 (defn create-table
   "Creates a table on the open database connection given a table name and
