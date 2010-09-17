@@ -92,3 +92,26 @@
          [{:one 1               :two 1
                                 :num-field-two 1
            :txt-field-one "xxx" :txt-field-two "yyy"}])))
+
+(deftest do-insert
+  (is (= 1
+         (sql/do-insert
+          "insert into \"test-one\" (\"my-txt\") values (?)"
+          ["xxx"])))
+  (is (= 2
+         (sql/do-insert
+          "insert into \"test-one\" (\"my-txt\") values (?)"
+          ["yyy"])))
+  (is (= 3
+         (sql/do-insert
+          (str "insert into \"test-one\" (\"my-txt\")"
+               " select ? where not exists"
+               " (select id from \"test-one\" where \"my-txt\" = ?)")
+          ["zzz" "zzz"])))
+  (is (nil?
+         (sql/do-insert
+          (str "insert into \"test-one\" (\"my-txt\")"
+               " select ? where not exists"
+               " (select id from \"test-one\" where \"my-txt\" = ?)")
+          ["zzz" "zzz"]))))
+  
