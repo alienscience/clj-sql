@@ -10,18 +10,23 @@ is '-', as in :user-id, etc"}
   (:use (clojure.contrib [java-utils :only [as-str]])))
 
 (def #^{:doc "the character used for quoting table and column names. This is a String"}
-     *quote-character* "\"")
+     *quote-character* "`")
 
-(def #^{:doc "The regular expression to test for names that needn't be quoted"}
+(def #^{:doc "The regular expression that matches names that needn't be quoted"}
      *plain-name-re* #"^[a-zA-Z][a-zA-Z0-9_]*$")
+
+(def #^{:doc "The regular expression that matches valid names"}
+     *valid-name-re* #"^[a-zA-Z_<>\-+=\[\]\.\,\/\?][0-9a-zA-Z_<>\-+=\[\]\.\,\/\?]*$")
 
 (defn quote-name [n]
   "Quote a table or column name.
-Accepts strings and keywords. Names cannot contain the *quote-character*"
+Accepts strings and keywords. Names must match *valid-name-re*"
   (let [n (as-str n)]
-    (if (re-matches *plain-name-re* n)
-      n
-      (str *quote-character* n *quote-character*))))
+    (if (re-matches *valid-name-re* n)
+      (if (re-matches *plain-name-re* n)
+        n
+        (str *quote-character* n *quote-character*))
+      (throw (Exception. (format "'%s' is not a valid name" n))))))
 
 (defmacro
   #^{:doc "alias (using defalias) a bunch of vars from another namespace into the current one"
@@ -29,11 +34,11 @@ Accepts strings and keywords. Names cannot contain the *quote-character*"
   alias-from [n & vars]
   `(do ~@(map #(list 'clojure.contrib.def/defalias % (symbol (name n) (name %))) vars)))
 
-
-(alias-from sql
-            find-connection connection with-connection
+(alias-from clojure.contrib.sql
+            find-connection connection with-connection connection
             transaction set-rollback-only is-rollback-only
-            do-commands do-prepared with-query-results)
+            do-commands do-prepared with-query-results
+            transaction set-rollback-only)
 
 (defn create-table
   "Creates a table on the open database connection given a table name and
