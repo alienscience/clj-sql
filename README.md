@@ -18,8 +18,9 @@ This package was written by developers who use [clojure.contrib.sql](http://rich
       (create-table
        :another-example
        [:id :integer "PRIMARY KEY" "AUTO_INCREMENT"]
-       [:first-example :integer]          ;; TODO: make this a foreign key
-       [:another-long-fieldname "varchar(255)"]))
+       [:first-example :integer]
+       [:another-long-fieldname "varchar(255)"]
+       ["FOREIGN KEY" [:first-example] "references" :an-example [:id]))
        
     (with-connection *db*
       (insert-with-id

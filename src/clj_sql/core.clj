@@ -6,7 +6,8 @@ is '-', as in :user-id, etc"}
   clj-sql.core
   (:require [clojure.contrib [sql :as sql]]
             [clojure.contrib [def :only defalias]]
-            [clojure.contrib.sql [internal :as internal]])
+            [clojure.contrib.sql [internal :as internal]]
+            [clojure.contrib [string :as str]])
   (:use (clojure.contrib [java-utils :only [as-str]])))
 
 (def #^{:doc "the character used for quoting table and column names. This is a String"}
@@ -40,6 +41,28 @@ Accepts strings and keywords. Names must match *valid-name-re*"
             do-commands do-prepared with-query-results
             transaction set-rollback-only)
 
+(defn- column-entry
+  "Converts an entry in a column definition into a string"
+  [x]
+  (cond
+    (keyword? x)    (quote-name x)
+    (vector? x)     (str "(" (str/join "," (map quote-name x)) ")")
+    (string? x)     x))
+
+(defn- column-definition
+  "Converts a vector containing a column definition into a string"
+  [column-def]
+  (str/join " " (map column-entry column-def)))
+
+(defn- create-table-sql
+  "Returns the sql that creates a table with the given specs"
+  [name specs]
+  (format
+   "CREATE TABLE %s (%s)"
+   (quote-name name)
+   (str/join "," (map column-definition specs))))
+
+
 (defn create-table
   "Creates a table on the open database connection given a table name and
   specs. Each spec is either a column spec: a vector containing a column
@@ -49,14 +72,7 @@ Accepts strings and keywords. Names must match *valid-name-re*"
   Column names are quoted if needed, but only when they're specified as a keyword."
   [name & specs]
   (do-commands
-   (format "CREATE TABLE %s (%s)"
-           (quote-name name)
-           (apply str
-                  (apply concat
-                         (interpose [", "]
-                                    (map #(interpose " " (into [(if (string? (first %))
-                                                                  (first %)
-                                                                  (quote-name (first %)))] (map as-str (rest %)))) specs)))))))
+   (create-table-sql name specs)))
 
 (defn drop-table
   "Drops a table on the open database connection given its name, a string

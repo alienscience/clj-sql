@@ -1,4 +1,4 @@
-(defproject clj-sql "0.0.2"
+(defproject clj-sql "0.0.3"
   :description "Changes and extensions to clojure.contrib.sql"
   :dependencies [[org.clojure/clojure "1.2.0"]
                  [org.clojure/clojure-contrib "1.2.0"]]
