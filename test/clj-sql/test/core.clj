@@ -64,11 +64,11 @@
 
 (deftest create
   ;; An exception will be thrown if no table exists
-  (is (nil? (select "select * from \"test-one\""))))
+  (is (nil? (select "select * from `test-one`"))))
 
 (deftest insert
   (sql/insert-values :test-one [:my-txt] ["xxx"])
-  (is (= (select "select id, \"my-txt\" from \"test-one\"")
+  (is (= (select "select id, `my-txt` from `test-one`")
          [{:id 1 :my-txt "xxx"}])))
 
 (deftest insert-record
@@ -82,13 +82,13 @@
     :test-one {:my-txt "xxx"}
     :test-two {:num-field (id :test-one)
                :my-txt "yyy"})
-  (is (= (select "select \"test-one\".id as one"
-                 ", \"test-two\".id as two"
-                 ", \"test-two\".\"num-field\" as \"num-field-two\""
-                 ", \"test-one\".\"my-txt\" as \"txt-field-one\""
-                 ", \"test-two\".\"my-txt\" as \"txt-field-two\""
-                 " from \"test-one\", \"test-two\""
-                 " where \"test-one\".id = \"test-two\".\"num-field\"")
+  (is (= (select "select `test-one`.id as one"
+                 ", `test-two`.id as two"
+                 ", `test-two`.`num-field` as `num-field-two`"
+                 ", `test-one`.`my-txt` as `txt-field-one`"
+                 ", `test-two`.`my-txt` as `txt-field-two`"
+                 " from `test-one`, `test-two`"
+                 " where `test-one`.id = `test-two`.`num-field`")
          [{:one 1               :two 1
                                 :num-field-two 1
            :txt-field-one "xxx" :txt-field-two "yyy"}])))
@@ -96,22 +96,22 @@
 (deftest do-insert
   (is (= 1
          (sql/do-insert
-          "insert into \"test-one\" (\"my-txt\") values (?)"
+          "insert into `test-one` (`my-txt`) values (?)"
           ["xxx"])))
   (is (= 2
          (sql/do-insert
-          "insert into \"test-one\" (\"my-txt\") values (?)"
+          "insert into `test-one` (`my-txt`) values (?)"
           ["yyy"])))
   (is (= 3
          (sql/do-insert
-          (str "insert into \"test-one\" (\"my-txt\")"
+          (str "insert into `test-one` (`my-txt`)"
                " select ? where not exists"
-               " (select id from \"test-one\" where \"my-txt\" = ?)")
+               " (select id from `test-one` where `my-txt` = ?)")
           ["zzz" "zzz"])))
   (is (nil?
          (sql/do-insert
-          (str "insert into \"test-one\" (\"my-txt\")"
+          (str "insert into `test-one` (`my-txt`)"
                " select ? where not exists"
-               " (select id from \"test-one\" where \"my-txt\" = ?)")
+               " (select id from `test-one` where `my-txt` = ?)")
           ["zzz" "zzz"]))))
   
