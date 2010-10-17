@@ -8,10 +8,11 @@ is '-', as in :user-id, etc"}
             [clojure.contrib [def :only defalias]]
             [clojure.contrib.sql [internal :as internal]]
             [clojure.contrib [string :as str]])
-  (:use (clojure.contrib [java-utils :only [as-str]])))
+  (:use (clojure.contrib [java-utils :only [as-str]]))
+  (:import [java.sql Statement]))
 
 (def #^{:doc "the character used for quoting table and column names. This is a String"}
-     *quote-character* "`")
+     *quote-character* "\"")
 
 (def #^{:doc "The regular expression that matches names that needn't be quoted"}
      *plain-name-re* #"^[a-zA-Z][a-zA-Z0-9_]*$")
@@ -212,12 +213,14 @@ Accepts strings and keywords. Names must match *valid-name-re*"
 
      (do-insert \"insert into employees (name) values (?)\" [\"fred\"])"
   [sql param-group]
-  (with-open [statement (.prepareStatement (connection) sql)]
+  (with-open [statement (.prepareStatement (connection)
+                                           sql
+                                           Statement/RETURN_GENERATED_KEYS)]
     (doseq [[index value] (map vector (iterate inc 1) param-group)]
       (.setObject statement index value))
     (if (< 0 (.executeUpdate statement))
-      (with-open [rs (.getGeneratedKeys statement)]
-        (if-not (nil? rs)
+      (if-let [rs (.getGeneratedKeys statement)]
+        (with-open [rs rs]
           (-> rs resultset-seq first vals first))))))
 
 (defn insert-record 
