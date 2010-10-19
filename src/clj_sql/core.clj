@@ -20,16 +20,6 @@ is '-', as in :user-id, etc"}
 (def #^{:doc "The regular expression that matches valid names"}
      *valid-name-re* #"^[a-zA-Z_<>\-+=\[\]\.\,\/\?][0-9a-zA-Z_<>\-+=\[\]\.\,\/\?]*$")
 
-(defn quote-name [n]
-  "Quote a table or column name.
-Accepts strings and keywords. Names must match *valid-name-re*"
-  (let [n (as-str n)]
-    (if (re-matches *valid-name-re* n)
-      (if (re-matches *plain-name-re* n)
-        n
-        (str *quote-character* n *quote-character*))
-      (throw (Exception. (format "'%s' is not a valid name" n))))))
-
 (defmacro
   #^{:doc "alias (using defalias) a bunch of vars from another namespace into the current one"
      :private true}
@@ -37,10 +27,45 @@ Accepts strings and keywords. Names must match *valid-name-re*"
   `(do ~@(map #(list 'clojure.contrib.def/defalias % (symbol (name n) (name %))) vars)))
 
 (alias-from clojure.contrib.sql
-            find-connection connection with-connection connection
+            find-connection connection
             transaction set-rollback-only is-rollback-only
             do-commands do-prepared with-query-results
             transaction set-rollback-only)
+
+(defn with-connection*
+  "Evaluates func in the context of a new connection to a database
+   then closes the connection."
+  [dbspec func]
+  (binding [*quote-character* nil]
+    (internal/with-connection* dbspec func)))
+
+(defmacro with-connection
+  [db-spec & body]
+  `(with-connection* ~db-spec (fn [] ~@body)))
+
+(defn- set-quote-character!
+  "Uses the class of the current connection to GUESS the quote character"
+  []
+  (let [conn (connection)
+        c-class (str (class conn))]
+    (set! *quote-character*
+          (cond
+            (re-find #"(?i)mysql" c-class)  "`"
+            :else                           "\""))))
+
+(defn quote-name 
+  "Quote a table or column name.
+   Accepts strings and keywords. Names must match *valid-name-re*"
+  [n]
+  (let [n (as-str n)]
+    (if (re-matches *plain-name-re* n)
+      n
+      (if (re-matches *valid-name-re* n)
+        (do
+          (if (nil? *quote-character*) (set-quote-character!))
+          (str *quote-character* n *quote-character*))
+        (throw (Exception. (format "'%s' is not a valid name" n)))))))
+
 
 (defn- column-entry
   "Converts an entry in a column definition into a string"
