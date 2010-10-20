@@ -11,14 +11,15 @@ is '-', as in :user-id, etc"}
   (:use (clojure.contrib [java-utils :only [as-str]]))
   (:import [java.sql Statement]))
 
-(def #^{:doc "the character used for quoting table and column names. This is a String"}
-     *quote-character* "\"")
-
-(def #^{:doc "The regular expression that matches names that needn't be quoted"}
-     *plain-name-re* #"^[a-zA-Z][a-zA-Z0-9_]*$")
 
 (def #^{:doc "The regular expression that matches valid names"}
      *valid-name-re* #"^[a-zA-Z_<>\-+=\[\]\.\,\/\?][0-9a-zA-Z_<>\-+=\[\]\.\,\/\?]*$")
+
+(def #^{:doc "The current connection dbspec"}
+     *current-dbspec* nil)
+
+(def #^{:doc "Hash/atom caching database metadata and keyed by connection db-spec"}
+     db-meta-data (atom {}))
 
 (defmacro
   #^{:doc "alias (using defalias) a bunch of vars from another namespace into the current one"
@@ -36,34 +37,47 @@ is '-', as in :user-id, etc"}
   "Evaluates func in the context of a new connection to a database
    then closes the connection."
   [dbspec func]
-  (binding [*quote-character* nil]
+  (binding [*current-dbspec* dbspec]
     (internal/with-connection* dbspec func)))
 
 (defmacro with-connection
   [db-spec & body]
   `(with-connection* ~db-spec (fn [] ~@body)))
 
-(defn- set-quote-character!
-  "Uses the class of the current connection to GUESS the quote character"
+(defn- set-db-meta!
+  "Fills a cache with required meta data from the current connection"
   []
   (let [conn (connection)
-        c-class (str (class conn))]
-    (set! *quote-character*
-          (cond
-            (re-find #"(?i)mysql" c-class)  "`"
-            :else                           "\""))))
+        db-meta (.getMetaData conn)
+        quote-character (.getIdentifierQuoteString db-meta)
+        extra-name-chars (.getExtraNameCharacters db-meta)
+        plain-name-re (re-pattern (str "^[a-zA-Z][a-zA-Z0-9_"
+                                       extra-name-chars
+                                       "]*$"))]
+    (swap! db-meta-data
+           assoc
+           *current-dbspec*
+           {:quote-character quote-character
+            :plain-name-re plain-name-re})))
+
+(defn- get-db-meta
+  "Gets the database metadata for the current connection"
+  []
+  (if (nil? (@db-meta-data *current-dbspec*))
+    (set-db-meta!))
+  (@db-meta-data *current-dbspec*))
 
 (defn quote-name 
   "Quote a table or column name.
    Accepts strings and keywords. Names must match *valid-name-re*"
   [n]
-  (let [n (as-str n)]
-    (if (re-matches *plain-name-re* n)
+  (let [n (as-str n)
+        db-meta (get-db-meta)]
+    (if (re-matches (db-meta :plain-name-re) n)
       n
       (if (re-matches *valid-name-re* n)
-        (do
-          (if (nil? *quote-character*) (set-quote-character!))
-          (str *quote-character* n *quote-character*))
+        (let [quote-character (db-meta :quote-character)]
+          (str quote-character n quote-character))
         (throw (Exception. (format "'%s' is not a valid name" n)))))))
 
 
