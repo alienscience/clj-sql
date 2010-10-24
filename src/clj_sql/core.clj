@@ -7,7 +7,7 @@ is '-', as in :user-id, etc"}
   (:require [clojure.contrib [sql :as sql]]
             [clojure.contrib [def :only defalias]]
             [clojure.contrib.sql [internal :as internal]]
-            [clojure.contrib [string :as str]])
+            [clojure.contrib [string :as string]])
   (:use (clojure.contrib [java-utils :only [as-str]]))
   (:import [java.sql Statement]))
 
@@ -86,13 +86,13 @@ is '-', as in :user-id, etc"}
   [x]
   (cond
     (keyword? x)    (quote-name x)
-    (vector? x)     (str "(" (str/join "," (map quote-name x)) ")")
+    (vector? x)     (str "(" (string/join "," (map quote-name x)) ")")
     (string? x)     x))
 
 (defn- column-definition
   "Converts a vector containing a column definition into a string"
   [column-def]
-  (str/join " " (map column-entry column-def)))
+  (string/join " " (map column-entry column-def)))
 
 (defn- create-table-sql
   "Returns the sql that creates a table with the given specs"
@@ -100,7 +100,7 @@ is '-', as in :user-id, etc"}
   (format
    "CREATE TABLE %s (%s)"
    (quote-name name)
-   (str/join "," (map column-definition specs))))
+   (string/join "," (map column-definition specs))))
 
 
 (defn create-table
@@ -192,13 +192,7 @@ is '-', as in :user-id, etc"}
 
 ;; the following is insert-with-id functionality
 
-;;==== Internal functions ======================================================
-
-(defn- join 
-  "Joins the items in the given collection into a single string separated
-   with the string separator."
-  [separator col]
-  (apply str (interpose separator col)))
+;;==== Internal functions for inserting ========================================
 
 (defn- sql-for-insert 
   "Converts a table identifier (keyword or string) and a hash identifying
@@ -209,14 +203,14 @@ is '-', as in :user-id, etc"}
         columns (map quote-name (keys record))
         values (vals record)
         n (count columns)
-        template (join "," (replicate n "?"))
-        column-names (join "," columns)
+        template (string/join "," (replicate n "?"))
+        column-names (string/join "," columns)
         sql (format "insert into %s (%s) values (%s)"
                     table-name column-names template)]
     [sql values]))
 
 
-;;==== Functions/macros for use by macros ======================================
+;;==== Insert functions/macros for use by macros ===============================
 
 (defn run-chained 
   "Runs the given database insert functions on the given
@@ -243,7 +237,7 @@ is '-', as in :user-id, etc"}
                 (insert-record ~table ~record))])))
 
 
-;;==== Functions/macros for external use =======================================
+;;==== Insert functions/macros for external use ================================
 
 
 (defn do-insert 
@@ -284,3 +278,5 @@ is '-', as in :user-id, etc"}
   `(let [insert-fns# (build-insert-fns ~table-records)]
      (run-chained insert-fns#)))
 
+
+;;==== DB Meta data functions ==================================================
