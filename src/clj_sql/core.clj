@@ -288,6 +288,9 @@ is '-', as in :user-id, etc"}
    sql-params is a vector containing a string providing
    the (optionally parameterized) SQL query followed by values for any
    parameters.
+   This functions relies on the database and the JDBC driver supporting
+   the .setFetchSize method on statement objects and is known not to
+   use cursors with H2, Derby and Mysql.
      e.g
        (with-connection db
          (with-query-results-cursor
@@ -353,9 +356,9 @@ is '-', as in :user-id, etc"}
   (range 1 (+ 1 end)))
 
 (defn describe-table
-  "Returns a list of column descriptions (maps) for the table.  The
-  maps
-  contain: :name, :catalog, :display-zie, :type, :precision, :scale
+  "Returns a list of column descriptions (maps) for the table.  The maps
+  contain:
+  :name, :catalog, :display-zie, :type, :precision, :scale
   :is-auto-increment, :is-case-sensitive, :is-currency
   :is-definitely-writable, :is-nullable, :is-read-only
   :is-searchable, :is-signed, :is-writable."
