@@ -145,3 +145,16 @@
                 (select id from ~{table} where ~{field} = ?)")
               ["zzz" "zzz"])))))))
   
+(deftest schemas
+  (if (= mysql-db *current-db*)
+    (is (not (empty? (sql/schema-objects "PUBLIC"))))
+    (let [schemas (sql/schemas)]
+      (is (not (empty? schemas)))
+      (is (not (empty? (sql/schema-objects (first schemas))))))))
+
+
+(deftest describe-table
+  (let [[first-col second-col] (sql/describe-table "test-one")]
+    (is (not (empty? first-col)))
+    (is (not (empty? second-col)))))
+

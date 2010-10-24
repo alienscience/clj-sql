@@ -280,3 +280,98 @@ is '-', as in :user-id, etc"}
 
 
 ;;==== DB Meta data functions ==================================================
+
+(defn schemas
+  "Returns a list of the schema names in the database."
+  []
+  (let [schemas (.getSchemas (.getMetaData (connection)))]
+    (loop [has-next (.next schemas)
+           res []]
+      (if has-next
+        (let [schema  (.getString schemas 1)]
+          (recur (.next schemas)
+                 (conj res schema)))
+        res))))
+
+
+(defn schema-objects
+  "Returns a list of maps describing the objects in the database.  The
+ maps include: :catalog, :schema, :name, :type and :remarks as per
+ the JDBC spec."
+  [& [schema]]
+  (let [db-meta (.getMetaData (connection))
+        ;; NB: "public" is the default for postgres
+        tables  (.getTables db-meta nil (or schema "public")
+                            "%" nil)]
+    (loop [has-next (.next tables)
+           res []]
+      (if has-next
+        (let [table {:catalog  (.getString tables  1)
+                     :schema   (.getString tables  2)
+                     :name     (.getString tables  3)
+                     :type     (.getString tables  4)
+                     :remarks  (.getString tables  5)
+                     }]
+          (recur (.next tables)
+                 (conj res table)))
+        res))))
+
+
+(defn schema-tables [& [schema]]
+  (filter #(= (:type %1)
+              "TABLE")
+          (schema-objects schema)))
+
+(defn- range-sql [end]
+  (range 1 (+ 1 end)))
+
+(defn describe-table
+  "Returns a list of column descriptions (maps) for the table.  The
+  maps
+  contain: :name, :catalog, :display-zie, :type, :precision, :scale
+  :is-auto-increment, :is-case-sensitive, :is-currency
+  :is-definitely-writable, :is-nullable, :is-read-only
+  :is-searchable, :is-signed, :is-writable."
+  [table-name]
+  (let [ps (.prepareStatement
+            (connection)
+            (format "SELECT * FROM %s WHERE 0 = 1" (quote-name table-name)))
+        rs (.executeQuery ps)
+        rs-meta (.getMetaData rs)]
+    (loop [[idx & idxs] (range-sql (.getColumnCount rs-meta))
+           res []]
+      (if idx
+        (recur idxs
+               (conj res {:name
+                          (.getColumnName rs-meta idx)
+                          :catalog
+                          (.getCatalogName rs-meta idx)
+                          :display-size
+                          (.getColumnDisplaySize rs-meta idx)
+                          :type
+                          (.getColumnType rs-meta idx)
+                          :precision              (.getPrecision
+                                                   rs-meta idx)
+                          :scale                  (.getScale rs-meta idx)
+                          :is-auto-increment
+                          (.isAutoIncrement rs-meta idx)
+                          :is-case-sensitive
+                          (.isCaseSensitive rs-meta idx)
+                          :is-currency            (.isCurrency
+                                                   rs-meta idx)
+                          :is-definitely-writable
+                          (.isDefinitelyWritable rs-meta idx)
+                          :is-nullable            (.isNullable
+                                                   rs-meta idx)
+                          :is-read-only           (.isReadOnly
+                                                   rs-meta idx)
+                          :is-searchable          (.isSearchable
+                                                   rs-meta idx)
+                          :is-signed              (.isSigned rs-meta idx)
+                          :is-writable            (.isWritable
+                                                   rs-meta idx)
+                          }))
+        res))))
+
+
+
