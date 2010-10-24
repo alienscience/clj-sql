@@ -279,6 +279,33 @@ is '-', as in :user-id, etc"}
      (run-chained insert-fns#)))
 
 
+;;==== Query results cursor ====================================================
+
+(defn with-query-results-cursor
+  "Executes a query, then calls func (fn [res] ...) each time fetch-size has
+   been retrieved from the database. The res argument to func is a seq of
+   the results.
+   sql-params is a vector containing a string providing
+   the (optionally parameterized) SQL query followed by values for any
+   parameters.
+     e.g
+       (with-connection db
+         (with-query-results-cursor
+            50
+            [\"select * from table where department = ?\" \"XFiles\"]
+            (fn [res]
+              ;; do something with a sequence of up to 50 maps
+              )))"
+  [fetch-size [sql & params :as sql-params] func]
+  (sql/transaction
+   (with-open [stmt (.prepareStatement (connection) sql)]
+     (.setFetchSize stmt fetch-size)
+     (doseq [[index value] (map vector (iterate inc 1) params)]
+       (.setObject stmt index value))
+     (with-open [rset (.executeQuery stmt)]
+       (func (resultset-seq rset))))))
+
+
 ;;==== DB Meta data functions ==================================================
 
 (defn schemas

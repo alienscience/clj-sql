@@ -158,3 +158,21 @@
     (is (not (empty? first-col)))
     (is (not (empty? second-col)))))
 
+(def results-size nil)
+
+(deftest results-cursor
+  (dotimes [n 70]
+    (sql/insert-record :test-one {:my-txt "whatever"}))
+  (binding [results-size []]
+    (.setAutoCommit (sql/connection) false)
+    (sql/with-query-results-cursor 50
+      [(str "select * from " (sql/quote-name :test-one))]
+      (fn [res]
+        (set! results-size
+              (conj results-size (count res)))))
+    ;; Databases currently tested don't support .setFetchSize
+    (if (#{mysql-db derby-db h2-db} *current-db*)
+      (is (= (first results-size) 70))
+      (do
+        (is (= (first results-size) 50))
+        (is (= (second results-size) 20))))))
