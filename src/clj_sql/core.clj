@@ -1,9 +1,4 @@
-(ns #^{:doc "This is pretty much the same as clojure.contrib.sql,
-except that it uses quoting for column and table names, which means
-you can - if your database permits it - use more funky charcters in
-your names. The most obvious character you'll want to use from Clojure
-is '-', as in :user-id, etc"}
-  clj-sql.core
+(ns clj-sql.core
   (:require [clojure.contrib [sql :as sql]]
             [clojure.contrib [def :only defalias]]
             [clojure.contrib.sql [internal :as internal]]
@@ -15,8 +10,11 @@ is '-', as in :user-id, etc"}
 (def #^{:doc "The regular expression that matches valid names"}
      valid-name-re #"^[a-zA-Z_<>\-+=\[\]\.\,\/\?][0-9a-zA-Z_<>\-+=\[\]\.\,\/\?]*$")
 
-(def #^{:doc "The current connection dbspec"}
+(def ^:dynamic #^{:doc "The current connection dbspec"}
      *current-dbspec* nil)
+
+(def #^{:doc "Optional Writer that will be used for logging SQL"}
+     *show-sql* nil)
 
 (def #^{:doc "Hash/atom caching database metadata and keyed by connection db-spec"}
      db-meta-data (atom {}))
@@ -30,8 +28,58 @@ is '-', as in :user-id, etc"}
 (alias-from clojure.contrib.sql
             find-connection connection
             transaction set-rollback-only is-rollback-only
-            do-commands do-prepared with-query-results
             transaction set-rollback-only)
+
+(defn log
+  "Optionally logs the given strings to the Writer bound by *show-sql*"
+  [& s]
+  (if *show-sql*
+    (doseq [l s]
+      (.write *show-sql* (str l "\n")))))
+
+(defn do-commands
+  "Executes SQL commands on the open database connection."
+  [& commands]
+  (apply log commands)
+  (with-open [stmt (.createStatement (connection))]
+    (doseq [cmd commands]
+      (.addBatch stmt cmd))
+    (transaction
+      (seq (.executeBatch stmt)))))
+
+(defn do-prepared
+  "Executes an (optionally parameterized) SQL prepared statement on the
+open database connection. Each param-group is a seq of values for all of
+the parameters."
+  [sql & param-groups]
+  (log sql)
+  (with-open [stmt (.prepareStatement (connection) sql)]
+    (doseq [param-group param-groups]
+      (doseq [[index value] (map vector (iterate inc 1) param-group)]
+        (.setObject stmt index value))
+      (.addBatch stmt))
+    (transaction
+     (seq (.executeBatch stmt)))))
+
+(defn with-query-results*
+  "Executes a query, then evaluates func passing in a seq of the results as
+an argument. The first argument is a vector containing the (optionally
+parameterized) sql query string followed by values for any parameters."
+  [[sql & params :as sql-params] func]
+  (log sql)
+  (with-open [stmt (.prepareStatement (connection) sql)]
+    (doseq [[index value] (map vector (iterate inc 1) params)]
+      (.setObject stmt index value))
+    (with-open [rset (.executeQuery stmt)]
+      (func (resultset-seq rset)))))
+
+(defmacro with-query-results
+  "Executes a query, then evaluates body with results bound to a seq of the
+results. sql-params is a vector containing a string providing
+the (optionally parameterized) SQL query followed by values for any
+parameters."
+  [results sql-params & body]
+    `(with-query-results* ~sql-params (fn [~results] ~@body)))
 
 (defn with-connection*
   "Evaluates func in the context of a new connection to a database
@@ -246,6 +294,7 @@ is '-', as in :user-id, etc"}
 
      (do-insert \"insert into employees (name) values (?)\" [\"fred\"])"
   [sql param-group]
+  (log sql)
   (with-open [statement (.prepareStatement (connection)
                                            sql
                                            Statement/RETURN_GENERATED_KEYS)]
@@ -300,6 +349,7 @@ is '-', as in :user-id, etc"}
               ;; do something with a sequence of up to 50 maps
               )))"
   [fetch-size [sql & params :as sql-params] func]
+  (log sql)
   (sql/transaction
    (with-open [stmt (.prepareStatement (connection) sql)]
      (.setFetchSize stmt fetch-size)
