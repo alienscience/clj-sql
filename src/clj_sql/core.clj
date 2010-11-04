@@ -13,7 +13,7 @@ is '-', as in :user-id, etc"}
 
 
 (def #^{:doc "The regular expression that matches valid names"}
-     *valid-name-re* #"^[a-zA-Z_<>\-+=\[\]\.\,\/\?][0-9a-zA-Z_<>\-+=\[\]\.\,\/\?]*$")
+     valid-name-re #"^[a-zA-Z_<>\-+=\[\]\.\,\/\?][0-9a-zA-Z_<>\-+=\[\]\.\,\/\?]*$")
 
 (def #^{:doc "The current connection dbspec"}
      *current-dbspec* nil)
@@ -69,13 +69,13 @@ is '-', as in :user-id, etc"}
 
 (defn quote-name 
   "Quote a table or column name.
-   Accepts strings and keywords. Names must match *valid-name-re*"
+   Accepts strings and keywords. Names must match valid-name-re"
   [n]
   (let [n (as-str n)
         db-meta (get-db-meta)]
     (if (re-matches (db-meta :plain-name-re) n)
       n
-      (if (re-matches *valid-name-re* n)
+      (if (re-matches valid-name-re n)
         (let [quote-character (db-meta :quote-character)]
           (str quote-character n quote-character))
         (throw (Exception. (format "'%s' is not a valid name" n)))))))
@@ -358,7 +358,7 @@ is '-', as in :user-id, etc"}
 (defn describe-table
   "Returns a list of column descriptions (maps) for the table.  The maps
   contain:
-  :name, :catalog, :display-zie, :type, :precision, :scale
+  :name, :catalog, :display-size, :type, :precision, :scale
   :is-auto-increment, :is-case-sensitive, :is-currency
   :is-definitely-writable, :is-nullable, :is-read-only
   :is-searchable, :is-signed, :is-writable."

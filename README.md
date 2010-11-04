@@ -51,7 +51,7 @@ Available on [clojars](http://clojars.org/clj-sql) for use with Leiningen, Cake 
 
 Returns a list of column descriptions (maps) for the table.  The
 maps contain: 
-  :name, :catalog, :display-zie, :type, :precision, :scale
+  :name, :catalog, :display-size, :type, :precision, :scale
   :is-auto-increment, :is-case-sensitive, :is-currency
   :is-definitely-writable, :is-nullable, :is-read-only
   :is-searchable, :is-signed, :is-writable.
