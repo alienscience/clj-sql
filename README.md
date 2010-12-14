@@ -10,6 +10,8 @@ This package was written by developers who use [clojure.contrib.sql](http://rich
    `insert-with-id`,`insert-record`,`do-insert`
 - A function to retrieve query results using a database cursor.
    `with-query-results-cursor`
+- Query results with keys converted by a given function.
+  `with-query-results-keys`
 
 Available on [clojars](http://clojars.org/clj-sql) for use with Leiningen, Cake and Maven. There is a [google group](http://groups.google.com/group/clj-sql) for discussion and help with this package.
    
@@ -38,7 +40,12 @@ Available on [clojars](http://clojars.org/clj-sql) for use with Leiningen, Cake 
          (fn [res]
            ;; Do something with 1000 maps
            )))
-           
+          
+    (with-connection *db*
+       (with-query-results-keys res identity ["select * from a_table"]
+          ;; Query results held in res will have unconverted string keys
+          ))
+          
     (with-connection *db*
       (insert-with-id
         :an-example      {:a-long-fieldname "Example text"}
@@ -110,6 +117,9 @@ the results.
 the (optionally parameterized) SQL query followed by values for any
 parameters.
 
+Takes an optional keyword :keyfn that will be used to map column names
+into keys of the returned maps.
+
 This functions relies on the database and the JDBC driver supporting
 the .setFetchSize method on statement objects and is known not to
 use cursors with H2, Derby and Mysql.
@@ -120,4 +130,18 @@ use cursors with H2, Derby and Mysql.
             ["select * from table where department = ?" "XFiles"]
             (fn [res]
               ;; do something with a sequence of up to 50 maps
-              )))
+              )
+            :keyfn identity))
+
+### with-query-results-keys ###
+
+Executes a query, then evaluates body with results bound to a seq of the
+results whose keys have been mapped with a given function.
+  `sql-params` is a vector containing a string providing
+the (optionally parameterized) SQL query followed by values for any
+parameters.
+
+     (with-query-results-keys res key-fn 
+                             ["select * from table where dept = ?" "XFiles"]
+          ;; Do something with the results held in res
+          )
