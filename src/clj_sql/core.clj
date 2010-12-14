@@ -2,9 +2,11 @@
   (:require [clojure.contrib [sql :as sql]]
             [clojure.contrib [def :only defalias]]
             [clojure.contrib.sql [internal :as internal]]
-            [clojure.contrib [string :as string]])
+            [clojure.contrib [string :as string]]
+            [clj-sql.resultset :as resultset])
   (:use (clojure.contrib [java-utils :only [as-str]]))
   (:import [java.sql Statement]))
+
 
 
 (def #^{:doc "The regular expression that matches valid names"}
@@ -61,17 +63,27 @@ the parameters."
     (transaction
      (seq (.executeBatch stmt)))))
 
+(defn- lc-keyword
+  "A function that lowercases and keywords a string"
+  [k]
+  (keyword (.toLowerCase ^String k)))
+
 (defn with-query-results*
   "Executes a query, then evaluates func passing in a seq of the results as
 an argument. The first argument is a vector containing the (optionally
-parameterized) sql query string followed by values for any parameters."
-  [[sql & params :as sql-params] func]
+parameterized) sql query string followed by values for any parameters.
+   This version of with-query-results also takes and optional keyword
+argument, :key-fn, that will be used to map the column names of the result
+set into keys of the returned maps. The default version of this mapping
+function behaves in the same way as resultset-seq."
+  [[sql & params :as sql-params] func
+   &{:keys [keyfn] :or {keyfn lc-keyword}}]
   (log sql)
   (with-open [stmt (.prepareStatement (connection) sql)]
     (doseq [[index value] (map vector (iterate inc 1) params)]
       (.setObject stmt index value))
     (with-open [rset (.executeQuery stmt)]
-      (func (resultset-seq rset)))))
+      (func (resultset/as-seq rset keyfn)))))
 
 (defmacro with-query-results
   "Executes a query, then evaluates body with results bound to a seq of the
@@ -80,6 +92,15 @@ the (optionally parameterized) SQL query followed by values for any
 parameters."
   [results sql-params & body]
     `(with-query-results* ~sql-params (fn [~results] ~@body)))
+
+(defmacro with-query-results-keys
+  "Executes a query, then evaluates body with results bound to a seq of the
+results whose keys have been mapped with key-fn.
+  sql-params is a vector containing a string providing
+the (optionally parameterized) SQL query followed by values for any
+parameters."
+  [results keyfn sql-params & body]
+    `(with-query-results* ~sql-params (fn [~results] ~@body) :keyfn ~keyfn))
 
 (defn with-connection*
   "Evaluates func in the context of a new connection to a database
@@ -337,6 +358,8 @@ parameters."
    sql-params is a vector containing a string providing
    the (optionally parameterized) SQL query followed by values for any
    parameters.
+   Takes an optional keyword :keyfn that will be used to map column names
+   into keys of the returned maps.
    This functions relies on the database and the JDBC driver supporting
    the .setFetchSize method on statement objects and is known not to
    use cursors with H2, Derby and Mysql.
@@ -348,7 +371,8 @@ parameters."
             (fn [res]
               ;; do something with a sequence of up to 50 maps
               )))"
-  [fetch-size [sql & params :as sql-params] func]
+  [fetch-size [sql & params :as sql-params] func
+   &{:keys [keyfn] :or {keyfn lc-keyword}}]
   (log sql)
   (sql/transaction
    (with-open [stmt (.prepareStatement (connection) sql)]
@@ -356,7 +380,7 @@ parameters."
      (doseq [[index value] (map vector (iterate inc 1) params)]
        (.setObject stmt index value))
      (with-open [rset (.executeQuery stmt)]
-       (func (resultset-seq rset))))))
+       (func (resultset/as-seq rset keyfn))))))
 
 
 ;;==== DB Meta data functions ==================================================
@@ -452,6 +476,7 @@ parameters."
                                                    rs-meta idx)
                           }))
         res))))
+
 
 
 

@@ -52,11 +52,14 @@
   ([fields from-tables]
      (select fields from-tables nil))
   ([fields from-tables where]
+     (select fields from-tables where nil))
+  ([fields from-tables where keyfn]
      (let [field-names (build-field-names fields)
            table-names (build-table-names from-tables)
            where-clause (build-where-clause where)
            s (<< "select ~{field-names} from ~{table-names} ~{where-clause}")]
-       (sql/with-query-results res [s]
-         (doall res)))))
- 
-
+       (if (nil? keyfn)
+         (sql/with-query-results res [s]
+           (doall res))
+         (sql/with-query-results-keys res keyfn [s]
+           (doall res))))))

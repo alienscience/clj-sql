@@ -96,6 +96,18 @@
   (is (= 2
          (sql/insert-record :test-one {:my-txt "yyy"}))))
 
+(deftest with-query-results
+  (sql/insert-record :test-one {:my-txt "xxx"})
+  (is (= (select {:my-txt "MyTxt"} [:test-one])
+         [{:mytxt "xxx"}])))
+
+(deftest with-query-results-keys
+  (sql/insert-record :test-one {:my-txt "xxx"})
+  (is (= (select {:my-txt "MyTxt"} [:test-one] nil identity)
+         (if (#{mysql-db} *current-db*)
+             [{"MyTxt" "xxx"}]
+             [{"MYTXT" "xxx"}]))))
+
 (deftest insert-with-id
   (sql/insert-with-id
     :test-one {:my-txt "xxx"}
