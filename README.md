@@ -12,6 +12,8 @@ This package was written by developers who use [clojure.contrib.sql](http://rich
    `with-query-results-cursor`
 - Query results with keys converted by a given function.
   `with-query-results-keys`
+- Log SQL to a java.io.Writer by binding `*show-sql*`
+    
 
 Available on [clojars](http://clojars.org/clj-sql) for use with Leiningen, Cake and Maven. There is a [google group](http://groups.google.com/group/clj-sql) for discussion and help with this package.
    
@@ -52,6 +54,10 @@ Available on [clojars](http://clojars.org/clj-sql) for use with Leiningen, Cake 
         :another-example {:first-example          (id :an-example)
                           :another-long-fieldname "More example text"}))
 
+    (binding [clj-sql.core/*show-sql* *err*]
+       ;; Any commands that generate or use SQL will log the SQL to *err*
+       )
+       
 ## Functions not in clojure.contrib.sql ##
 
 ### describe-table ###
